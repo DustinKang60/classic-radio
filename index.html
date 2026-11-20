@@ -474,15 +474,17 @@
    이 목록은 이름표일 뿐 아니라 다이얼이 물릴 자리이기도 하다. */
 var FM_NAMES = {
   "89.1": "KBS 쿨FM",
+  "91.9": "MBC FM4U",
   "93.1": "KBS 클래식FM",
   "93.9": "CBS 음악FM",
+  "95.9": "MBC 표준FM",
   "98.1": "CBS 표준FM",
   "103.5": "SBS 러브FM",
   "107.7": "SBS 파워FM"
 };
 
 /* FM 프리셋. 다이얼에 바로 뜨는 단추다. */
-var FM_PRESETS = [93.1, 89.1, 93.9, 103.5, 107.7];
+var FM_PRESETS = [93.1, 89.1, 91.9, 95.9, 103.5, 107.7];
 
 /*
   인터넷 방송은 방송사가 주는 주소를 쓴다.
@@ -497,6 +499,9 @@ var FM_PRESETS = [93.1, 89.1, 93.9, 103.5, 107.7];
 */
 var KBS = "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/";
 var SBS = "https://apis.sbs.co.kr/play-api/1.0/livestream/";
+/* MBC 만 주소 API 가 웹에 막혀 있어(CORS) 중계를 한 번 거친다.
+   소리는 중계를 안 거치고 방송사에서 바로 받는다. */
+var MBC = "https://mbc-addr.jonghoon-kang.workers.dev/?ch=";
 
 var NET_STATIONS = {
   // AM: 폰에 AM 수신기가 없어서 인터넷으로만 들을 수 있다. kHz.
@@ -507,10 +512,12 @@ var NET_STATIONS = {
   // FM: 전파로도 들리지만 인터넷으로도 받을 수 있다. MHz. 서울 주파수 기준.
   FM: [
     { freq: 89.1,  name: "KBS 쿨FM",     url: KBS + "25" },
+    { freq: 91.9,  name: "MBC FM4U",     url: MBC + "mfm" },
     { freq: 93.1,  name: "KBS 클래식FM", url: KBS + "24" },
     // CBS 는 토큰이 없는 직접 주소다. EBS 와 같이 풀 필요 없이 그대로 재생된다.
     { freq: 93.9,  name: "CBS 음악FM",
       url: "https://m-aac.cbs.co.kr/cbs939/cbs939.stream/playlist.m3u8" },
+    { freq: 95.9,  name: "MBC 표준FM",   url: MBC + "sfm" },
     { freq: 98.1,  name: "CBS 표준FM",
       url: "https://m-aac.cbs.co.kr/cbs981/cbs981.stream/playlist.m3u8" },
     { freq: 103.5, name: "SBS 러브FM",   url: SBS + "lovepc/lovefm?protocol=hls&ssl=Y" },

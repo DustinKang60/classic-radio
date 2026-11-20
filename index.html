@@ -1,0 +1,1290 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>클래식 라디오</title>
+<style>
+  /* 다이얼 눈금과 계기 글자는 이 서체라야 제 느낌이 난다.
+     폰에 없는 서체라 앱 안에 넣어 쓴다. 라틴 문자만 있으면 되니 가볍다. */
+  @font-face {
+    font-family:'Barlow Semi Condensed'; font-style:normal; font-weight:400;
+    font-display:block; src:url('fonts/barlow-400.woff2') format('woff2');
+  }
+  @font-face {
+    font-family:'Barlow Semi Condensed'; font-style:normal; font-weight:500;
+    font-display:block; src:url('fonts/barlow-500.woff2') format('woff2');
+  }
+  @font-face {
+    font-family:'Barlow Semi Condensed'; font-style:normal; font-weight:600;
+    font-display:block; src:url('fonts/barlow-600.woff2') format('woff2');
+  }
+  @font-face {
+    font-family:'Barlow Semi Condensed'; font-style:normal; font-weight:700;
+    font-display:block; src:url('fonts/barlow-700.woff2') format('woff2');
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  :root {
+    --dial: 'Barlow Semi Condensed', 'Roboto Condensed', sans-serif-condensed, sans-serif;
+    --kr: 'Noto Sans KR', sans-serif;
+  }
+
+  html, body {
+    height:100%; overflow:hidden;
+    background:#1a1613;
+    font-family:var(--kr);
+    -webkit-user-select:none; user-select:none;
+    -webkit-tap-highlight-color:transparent;
+    overscroll-behavior:none;
+  }
+
+  /*
+    디자인은 가로 428 기준으로 그려졌다. 가로를 화면 폭에 딱 맞춰 키우면
+    부품 비율이 원본 그대로 유지된다.
+  */
+  #stage { width:428px; transform-origin:top left; }
+
+  #app { height:100%; display:flex; flex-direction:column; background:#1a1613; touch-action:none; }
+
+  /*
+    부품은 전부 제 크기를 지킨다. 남는 세로는 부품 사이로 벌어진다(.face 의
+    space-between). 옛날 라디오는 조작부가 성기다 — 빈자리가 있는 게 맞다.
+  */
+  .grille, .meters, .dial, .readout, .presets, .controls, .gyro, .brand { flex:0 0 auto; }
+
+  /* 케이스가 놓인 바닥 */
+  .shell {
+    flex:1; display:flex; flex-direction:column;
+    background:linear-gradient(160deg,#4a2f1c 0%,#2e1d12 100%);
+    padding:12px; min-height:0;
+  }
+
+  /* 나무 케이스 */
+  .case {
+    flex:1; display:flex; flex-direction:column;
+    border-radius:14px; overflow:hidden;
+    background:linear-gradient(100deg,#7b4f2e 0%,#a46b3d 22%,#8a5733 55%,#6d452a 100%);
+    padding:12px;
+    box-shadow:0 18px 40px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.18);
+    min-height:0;
+  }
+
+  /* 아이보리 전면판 */
+  .face {
+    flex:1; display:flex; flex-direction:column; justify-content:space-between;
+    border-radius:8px; overflow:hidden;
+    background:linear-gradient(180deg,#f4efe3 0%,#e9e2d2 100%);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.18), 0 2px 6px rgba(0,0,0,.35);
+    min-height:0;
+  }
+
+  /* 스피커 그릴 */
+  .grille {
+    margin:12px 12px 0; height:128px; border-radius:5px; position:relative;
+    background-color:#cfccc3;
+    background-image:radial-gradient(#8d8a82 1.1px, transparent 1.2px);
+    background-size:6px 6px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.22), inset 0 3px 10px rgba(0,0,0,.28);
+  }
+  /* 명판. 황동을 비스듬히 깎아 새긴 각인처럼 보이게 한다. */
+  .grille .mono {
+    position:absolute; left:14px; top:10px;
+    font-family:var(--dial); font-style:italic; font-size:18px; font-weight:700;
+    letter-spacing:1.5px; line-height:1;
+    background:linear-gradient(176deg,#8a6119 0%,#8a6119 45%,#c69a3f 50%,#8a6119 56%,#8a6119 100%);
+    -webkit-background-clip:text; background-clip:text;
+    -webkit-text-fill-color:transparent;
+    filter:drop-shadow(0 1px 0 rgba(255,255,255,.5));
+  }
+
+  /* 계기 패널 */
+  .meters {
+    margin:12px 12px 0; border-radius:4px;
+    background:linear-gradient(180deg,#dcdad4 0%,#c9c7c0 100%);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.26), inset 0 2px 5px rgba(0,0,0,.18);
+    display:flex; justify-content:center; align-items:center;
+    padding:10px; gap:10px;
+  }
+  .meter {
+    width:150px; height:96px; border-radius:3px; position:relative; overflow:hidden;
+    background:linear-gradient(180deg,#efeee7 0%,#e2e0d7 100%);
+    box-shadow:0 2px 6px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.35),
+               inset 0 0 0 3px rgba(255,255,255,.55), inset 0 -6px 14px rgba(0,0,0,.07);
+  }
+  .meter .cap {
+    position:absolute; left:0; right:0; top:12px; text-align:center;
+    font-family:var(--dial); font-size:10.5px; font-weight:500;
+    letter-spacing:1.6px; color:#2b2b2b; line-height:1.25;
+  }
+  .meter .arc {
+    position:absolute; left:12px; right:12px; top:2px; height:62px;
+    border-bottom:1px solid #3b3b3b; border-radius:50%;
+  }
+  .meter .nums {
+    position:absolute; left:16px; right:16px; top:58px; display:flex;
+    justify-content:space-between; font-family:var(--dial); font-size:10px; color:#2b2b2b;
+  }
+  .meter .dots { position:absolute; left:16px; right:16px; top:52px; display:flex; justify-content:space-between; }
+  .meter .dots i { width:2px; height:2px; border-radius:50%; background:#2b2b2b; display:block; }
+  .meter .dots2 { position:absolute; left:18px; right:18px; top:50px; display:flex; justify-content:space-between; }
+  .meter .dots2 i { width:3px; height:3px; border-radius:50%; background:#2b2b2b; display:block; }
+  /*
+    바늘의 축은 위에 있다. 마란츠 2285B 실물이 그렇다 —
+    축이 눈금판 위쪽 가장자리에 반쯤 묻혀 있고, 바늘이 아래로 늘어져
+    아래쪽 눈금을 가리킨다. 캡션 글자 위를 지나가는 것도 실물 그대로다.
+  */
+  .meter .needle {
+    position:absolute; left:50%; top:-6px; width:1.2px; height:78px;
+    transform-origin:top center; background:#1f1f1f;
+  }
+  .meter .hub {
+    position:absolute; left:50%; top:-10px; margin-left:-7px;
+    width:14px; height:14px; border-radius:50%;
+    background:#efeee7; box-shadow:inset 0 0 0 1px #3b3b3b;
+  }
+  .meter .zero { position:absolute; left:50%; margin-left:-9px; bottom:20px; width:18px; height:3px; background:#1f1f1f; }
+  .meter .foot {
+    position:absolute; left:0; right:0; bottom:5px; text-align:center;
+    font-family:var(--dial); font-size:8.5px; letter-spacing:1.4px; color:#4a4a4a;
+  }
+  .meter .glare {
+    position:absolute; left:-20px; top:-30px; width:80px; height:120px; transform:rotate(24deg);
+    background:linear-gradient(90deg,rgba(255,255,255,.42),rgba(255,255,255,0)); pointer-events:none;
+  }
+
+  /* 다이얼 창. 뒤에서 전구가 비치는 것처럼 가운데가 따뜻하게 뜬다. */
+  .dial {
+    margin:14px 12px 0; padding:10px 12px 12px; border-radius:5px; position:relative;
+    background-image:
+      linear-gradient(90deg,rgba(20,9,3,.85) 0%,rgba(20,9,3,.45) 7%,rgba(20,9,3,0) 20%,
+                      rgba(20,9,3,0) 80%,rgba(20,9,3,.45) 93%,rgba(20,9,3,.85) 100%),
+      radial-gradient(120% 90% at 50% 30%,rgba(255,225,170,.16) 0%,rgba(255,225,170,0) 62%),
+      linear-gradient(180deg,#3d2618 0%,#5b3a24 45%,#42291a 100%);
+    box-shadow:inset 0 2px 10px rgba(0,0,0,.65),
+               inset 14px 0 20px -8px rgba(0,0,0,.85),
+               inset -14px 0 20px -8px rgba(0,0,0,.85),
+               0 1px 0 rgba(255,255,255,.35);
+    overflow:hidden;
+  }
+  .scaleRow {
+    display:flex; justify-content:space-between; align-items:baseline;
+    font-family:var(--dial); font-size:13px; letter-spacing:1.6px; color:#d8c9a8;
+  }
+  .bandRow { display:flex; align-items:center; gap:10px; }
+  .bandRow .tag { font-family:var(--dial); font-size:19px; font-weight:600; width:34px; }
+  .bandRow .marks {
+    flex:1; display:flex; justify-content:space-between;
+    font-family:var(--dial); font-size:17px; color:#efe6d2;
+  }
+  .bandRow .unit { font-family:var(--dial); font-size:12px; color:#c9bda2; }
+  .ticks {
+    height:9px; margin:4px 44px; opacity:.55;
+    background-image:linear-gradient(90deg,#cbbc9e 0 1px, transparent 1px 100%);
+    background-size:9px 100%;
+  }
+  #dialNeedle {
+    position:absolute; top:6px; bottom:6px; width:2px;
+    background:linear-gradient(180deg,#fff,#e4d9c2);
+    box-shadow:0 0 8px rgba(255,240,200,.75);
+  }
+
+  /* 주파수 표시 */
+  .readout { margin:10px 14px 0; display:flex; align-items:baseline; gap:10px; }
+  .readout .big { font-family:var(--dial); font-size:34px; font-weight:700; color:#3a2a1d; line-height:1; }
+  .readout .unit { font-family:var(--dial); font-size:14px; color:#7a6b55; }
+  .readout .who { margin-left:auto; font-size:13px; font-weight:500; color:#6b5a49; }
+
+  /* 프리셋 */
+  .presets {
+    margin:12px 14px 0; display:flex; gap:8px; overflow-x:auto;
+    scrollbar-width:none; -ms-overflow-style:none;
+  }
+  .presets::-webkit-scrollbar { display:none; }
+  .chip {
+    flex:0 0 auto; padding:7px 13px; border-radius:9999px;
+    font-size:12.5px; font-weight:500; cursor:pointer; white-space:nowrap;
+    border:1px solid #c3b9a6; background:transparent; color:#6b5a49;
+    transition:background .18s, color .18s, border-color .18s;
+  }
+  .chip.on { background:#3d2618; color:#f4efe3; border-color:#3d2618; }
+
+  /*
+    조작부. 같은 크기의 노브 셋을 폭 전체에 고르게 펼친다.
+    고르는 것은 노브 위의 글씨고, 노브 안의 눈금이 어디에 물렸는지 보여준다.
+  */
+  .controls {
+    padding:14px 22px 6px; display:flex;
+    align-items:flex-start; justify-content:space-between; gap:14px;
+  }
+  .col { display:flex; flex-direction:column; align-items:center; gap:7px; }
+  .col .lab {
+    display:flex; align-items:center; gap:7px; line-height:1;
+    font-family:var(--dial); font-size:12px; letter-spacing:1px;
+  }
+  .col .lab .t { letter-spacing:1.4px; color:#5c4a3a; }
+  /* 검지로 눌러야 하니 글자보다 누를 자리를 넓게 준다.
+     음수 margin 으로 넓힌 만큼을 상쇄해서 줄 높이는 그대로 둔다. */
+  .col .lab .pick {
+    cursor:pointer; padding:6px 8px; margin:-6px -4px; border-radius:5px;
+    transition:color .15s ease;
+  }
+  .col .cap {
+    display:flex; align-items:center; gap:16px; line-height:1;
+    font-family:var(--dial); font-size:9px; letter-spacing:1px; color:#8a7863;
+  }
+  .knob {
+    width:60px; height:60px; border-radius:50%; position:relative;
+    background:radial-gradient(circle at 34% 28%,#fffdf6,#e6dcc8 62%,#c9bda6);
+    box-shadow:0 3px 6px rgba(0,0,0,.35), inset 0 0 0 1px rgba(0,0,0,.14);
+  }
+  .knob .spin { position:absolute; inset:0; border-radius:50%; }
+  .knob .ptr {
+    position:absolute; left:50%; margin-left:-1px; top:6px;
+    width:2px; height:18px; background:#5c4a3a; border-radius:1px;
+  }
+  .knobVol { cursor:grab; touch-action:none; }
+  /* 고른 쪽으로 눈금이 돌아간다. 손으로 돌리는 게 아니라 결과를 보여주는 것이라 부드럽게. */
+  .knobSw .spin { transition:transform .18s ease-out; }
+
+  /*
+    자이로터치 튜닝 휠. 마란츠 수신기의 플라이휠 튜너다.
+    옆으로 밀면 돌고, 튕기면 관성으로 계속 돌다 마찰로 멎는다.
+  */
+  .gyro { padding:2px 16px 0; display:flex; flex-direction:column; gap:5px; }
+  .gyro .lab {
+    display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:var(--dial); font-size:10px; letter-spacing:2.2px; color:#4a3626;
+  }
+  .gyro .lab i { font-style:normal; font-size:8px; }
+  /* 창. 전면판을 도려낸 자리라 어둡고 깊다. */
+  .gyro .well {
+    height:44px; border-radius:3px; padding:3px; position:relative; overflow:hidden;
+    cursor:ew-resize; touch-action:none;
+    background:#15100c;
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.9), 0 1px 0 rgba(255,255,255,.4);
+  }
+  /* 원통을 옆에서 본 띠. 위아래 황동 테, 가운데 널링 바탕. */
+  .gyro .band {
+    position:absolute; inset:3px; border-radius:2px; overflow:hidden;
+    background-image:linear-gradient(180deg,
+      #e8dcc0 0 3px, #c9a35c 3px 7px,
+      #3f4247 7px 34%, #2b2e33 34% 66%, #3f4247 66% 93%,
+      #c9a35c 93% 97%, #e8dcc0 97% 100%);
+  }
+  /* 이 켜만 옆으로 흐른다. 황동 테와 광택은 제자리에 있어야 원통이 도는 것처럼 보인다. */
+  .gyro .knurl {
+    position:absolute; inset:0;
+    background-image:radial-gradient(rgba(255,255,255,.16) 1px, transparent 1.4px);
+    background-size:7px 7px;
+  }
+  /* 좌우로 돌아 나가며 어두워지고, 가운데는 정면으로 빛을 되받는다. */
+  .gyro .shade {
+    position:absolute; inset:0; pointer-events:none;
+    background-image:linear-gradient(90deg,
+      rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 18%,
+      rgba(255,255,255,.14) 50%,
+      rgba(0,0,0,0) 82%, rgba(0,0,0,.55) 100%);
+  }
+
+  /* 브랜드 각인과 전원. 라디오가 주인공이라 각인은 작게. */
+  .brand { padding:12px 16px 14px; display:flex; align-items:center; gap:9px; }
+  .brand .name { font-family:var(--kr); font-size:12px; font-weight:600; letter-spacing:.4px; color:#4a3626; }
+  .brand .model { font-family:var(--dial); font-size:9.5px; letter-spacing:1.1px; color:#8a7863; }
+  /*
+    취침 타이머. 누를 때마다 15 → 30 → 60 → 꺼짐 으로 돈다.
+    브랜드 각인과 전원 사이의 빈자리를 쓴다. 부품을 하나도 밀어내지 않는다.
+    (휠 라벨 줄에 두면 휠을 돌리다 손이 스친다)
+  */
+  .sleep {
+    margin-left:auto; display:flex; align-items:center; gap:6px;
+    font-family:var(--dial); font-size:10px; letter-spacing:1.5px;
+    color:#8a7863; cursor:pointer;
+    padding:7px 5px; margin-top:-7px; margin-bottom:-7px;
+  }
+  .sleep .lab { letter-spacing:1.8px; }
+  .sleep .m { transition:color .15s ease; }
+  .sleep .m.on { color:#2fbd52; }
+
+  .pwr { margin-left:auto; display:flex; align-items:center; gap:8px; cursor:pointer; }
+  .pwr .btn {
+    width:30px; height:30px; border-radius:50%; position:relative;
+    display:flex; align-items:center; justify-content:center;
+    background:radial-gradient(circle at 34% 28%,#fffdf6,#e6dcc8 60%,#c4b8a1);
+    box-shadow:0 2px 4px rgba(0,0,0,.3), inset 0 0 0 1px rgba(0,0,0,.16);
+    transition:box-shadow .15s ease, transform .15s ease;
+  }
+  /* 켜지면 실제로 눌려 들어간다 */
+  .pwr .btn.on {
+    transform:translateY(1.5px);
+    box-shadow:0 1px 2px rgba(0,0,0,.4), inset 0 2px 6px rgba(0,0,0,.3);
+  }
+  .pwr .pip {
+    width:8px; height:8px; border-radius:50%;
+    background:#4a4038; transition:background .15s, box-shadow .15s;
+  }
+  .pwr .btn.on .pip { background:#2fbd52; box-shadow:0 0 6px rgba(47,189,82,.85); }
+
+  /* 안내문. 자리를 차지하지 않게 위에 떠 있는다. */
+  #notice {
+    display:none; position:fixed; left:12px; right:12px; bottom:12px; z-index:10;
+    padding:10px 12px; border-radius:10px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5);
+    background:#2a211a; border:1px solid #5c4a3a; color:#e8dcc8;
+    font-size:12.5px; line-height:1.55;
+  }
+  #notice b { color:#f2c98a; }
+  #notice button {
+    margin-top:8px; padding:7px 12px; border-radius:8px; cursor:pointer;
+    border:1px solid #a9967a; background:#3d2618; color:#f4efe3;
+    font-size:12.5px; font-family:var(--kr);
+  }
+</style>
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="클래식 라디오">
+<link rel="apple-touch-icon" href="icon-180.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script src="engine.js"></script>
+</head>
+<body>
+<div id="stage">
+<div id="app">
+  <div class="shell">
+    <div class="case">
+      <div class="face">
+
+        <div class="grille"><span class="mono">JHK</span></div>
+
+        <div class="meters">
+          <!-- 왼쪽: 신호 세기. 실제 소리 크기로 움직인다. -->
+          <div class="meter">
+            <div class="cap">SIGNAL<br>STRENGTH</div>
+            <div class="arc"></div>
+            <div class="dots"><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="nums"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+            <div class="needle" id="vuL"></div>
+            <div class="hub"></div>
+            <div class="foot">MULTIPATH</div>
+            <div class="glare"></div>
+          </div>
+          <!-- 오른쪽: 동조. 맞으면 가운데로 선다. -->
+          <div class="meter">
+            <div class="cap">FM<br>TUNING</div>
+            <div class="arc"></div>
+            <div class="dots2"><i></i><i></i></div>
+            <div class="needle" id="vuR"></div>
+            <div class="hub"></div>
+            <div class="zero"></div>
+            <div class="foot">CENTER</div>
+            <div class="glare"></div>
+          </div>
+        </div>
+
+        <div class="dial">
+          <div class="scaleRow">
+            <span>0 · 1 · 2 · 3 · 4 · 5 · 6 · 7 · 8 · 9 · 10</span>
+            <span style="font-size:11px;letter-spacing:.5px;color:#a9967a">SCALE</span>
+          </div>
+          <div class="bandRow" style="margin-top:10px">
+            <span class="tag" id="tagAM">AM</span>
+            <div class="marks">
+              <span>530</span><span>700</span><span>900</span><span>1200</span><span>1500</span><span>1700</span>
+            </div>
+            <span class="unit">kHz</span>
+          </div>
+          <div class="ticks"></div>
+          <div class="bandRow">
+            <span class="tag" id="tagFM">FM</span>
+            <div class="marks">
+              <span>88</span><span>92</span><span>96</span><span>100</span><span>104</span><span>108</span>
+            </div>
+            <span class="unit">MHz</span>
+          </div>
+          <div id="dialNeedle"></div>
+        </div>
+
+        <div class="readout">
+          <span class="big" id="freqLabel">93.1</span>
+          <span class="unit" id="unitLabel">MHz</span>
+          <span class="who" id="stationLabel">전원 꺼짐</span>
+        </div>
+
+        <div class="presets" id="presets"></div>
+
+        <div class="controls">
+          <div class="col">
+            <div class="lab"><span class="t">VOLUME</span></div>
+            <div class="knob knobVol" id="knobVol"><div class="spin" id="spinVol"><div class="ptr"></div></div></div>
+            <div class="cap"><span>MIN</span><span>MAX</span></div>
+          </div>
+
+          <!-- 무엇을 듣나 -->
+          <div class="col">
+            <div class="lab"><span class="pick" id="kFM">FM</span><span class="pick" id="kAM">AM</span></div>
+            <div class="knob knobSw"><div class="spin" id="spinBand"><div class="ptr"></div></div></div>
+            <div class="cap">BAND</div>
+          </div>
+
+          <!-- 어떻게 받나 -->
+          <div class="col">
+            <div class="lab"><span class="pick" id="kAIR">AIR</span><span class="pick" id="kNET">NET</span></div>
+            <div class="knob knobSw"><div class="spin" id="spinSrc"><div class="ptr"></div></div></div>
+            <div class="cap">SOURCE</div>
+          </div>
+        </div>
+
+        <div class="gyro">
+          <div class="lab"><i>◀</i><span>GYRO-TOUCH TUNING</span><i>▶</i></div>
+          <div class="well" id="drum">
+            <div class="band">
+              <div class="knurl" id="knurl"></div>
+              <div class="shade"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="brand">
+          <span class="name">작은앱공방</span>
+          <span class="model">2 BANDS RECEIVER · SB-11</span>
+          <div class="pwr" id="powerBtn">
+            <div class="btn" id="powerLamp"><span class="pip"></span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="notice"></div>
+</div>
+</div>
+
+<script>
+"use strict";
+
+/* ══════════════════════════════════════════════════════════════
+   설정 — 여기만 고치면 된다
+   ══════════════════════════════════════════════════════════════ */
+
+/* FM: 진짜 전파. 주파수는 폰이 실제로 잡은 값을 쓰고,
+   이름표만 여기서 붙인다. 서울 기준이라 지역이 다르면 고치면 된다.
+   이 목록은 이름표일 뿐 아니라 다이얼이 물릴 자리이기도 하다. */
+var FM_NAMES = {
+  "89.1": "KBS 쿨FM",
+  "93.1": "KBS 클래식FM",
+  "93.9": "CBS 음악FM",
+  "98.1": "CBS 표준FM",
+  "103.5": "SBS 러브FM",
+  "107.7": "SBS 파워FM"
+};
+
+/* FM 프리셋. 다이얼에 바로 뜨는 단추다. */
+var FM_PRESETS = [93.1, 89.1, 93.9, 103.5, 107.7];
+
+/*
+  인터넷 방송은 방송사가 주는 주소를 쓴다.
+
+  전에는 개인이 돌리는 중계(serpent0.duckdns.org)에 9개 중 8개가 매달려 있었다.
+  그 서버가 죽으면 같이 죽는데, 실제로 MBC FM4U(91.9)가 그렇게 멎었다.
+  이제 방송사 API 를 직접 두드린다. 전부 https 라 cleartext 예외도 필요 없다.
+
+  주소는 셋 다 시한부다(KBS 는 CloudFront 서명, SBS 는 JWT exp, MBC 는 자체 토큰).
+  하드코딩하면 몇 시간 만에 죽으니 **재생할 때마다 받아서 풀어야 한다.**
+  그 일은 StreamService.resolve() 가 한다.
+*/
+var KBS = "https://cfpwwwapi.kbs.co.kr/api/v1/landing/live/channel_code/";
+var SBS = "https://apis.sbs.co.kr/play-api/1.0/livestream/";
+
+var NET_STATIONS = {
+  // AM: 폰에 AM 수신기가 없어서 인터넷으로만 들을 수 있다. kHz.
+  AM: [
+    { freq: 711,  name: "KBS 1라디오", url: KBS + "21" },
+    { freq: 1134, name: "KBS 해피FM",  url: KBS + "22" }
+  ],
+  // FM: 전파로도 들리지만 인터넷으로도 받을 수 있다. MHz. 서울 주파수 기준.
+  FM: [
+    { freq: 89.1,  name: "KBS 쿨FM",     url: KBS + "25" },
+    { freq: 93.1,  name: "KBS 클래식FM", url: KBS + "24" },
+    // CBS 는 토큰이 없는 직접 주소다. EBS 와 같이 풀 필요 없이 그대로 재생된다.
+    { freq: 93.9,  name: "CBS 음악FM",
+      url: "https://m-aac.cbs.co.kr/cbs939/cbs939.stream/playlist.m3u8" },
+    { freq: 98.1,  name: "CBS 표준FM",
+      url: "https://m-aac.cbs.co.kr/cbs981/cbs981.stream/playlist.m3u8" },
+    { freq: 103.5, name: "SBS 러브FM",   url: SBS + "lovepc/lovefm?protocol=hls&ssl=Y" },
+    { freq: 104.5, name: "EBS FM",
+      url: "https://ebsonair.ebs.co.kr/fmradiofamilypc/familypc1m/playlist.m3u8" },
+    { freq: 107.7, name: "SBS 파워FM",   url: SBS + "powerpc/powerfm?protocol=hls&ssl=Y" }
+  ]
+};
+
+/* ══════════════════════════════════════════════════════════════
+   네이티브 다리 — PC 브라우저에서 열어봐도 죽지 않게 감싼다
+   ══════════════════════════════════════════════════════════════ */
+
+/* 소리 엔진은 engine.js 에 있다. 방송 추가·수정은 아래 목록만 고치면 된다. */
+
+/* ══════════════════════════════════════════════════════════════
+   상태
+   ══════════════════════════════════════════════════════════════ */
+
+var BANDS = {
+  FM: { min: 87.5, max: 108, unit: "MHz", digits: 1 },
+  AM: { min: 530, max: 1700, unit: "kHz", digits: 0 }
+};
+
+var S = {
+  band: "FM",        // 무엇을 듣나: FM | AM
+  src: "AIR",        // 어떻게 받나: AIR(전파) | NET(인터넷)
+  power: false,
+  target: 93.1,      // 가려는 주파수
+  actual: 0,         // 폰이 실제로 잡고 있는 주파수. 아직 모르면 0.
+  vol: 0.55,
+  stations: [],      // 전파에서 실제로 만난 방송국
+  tuning: false,     // 이동 중인가
+  lastMove: 0,       // 주파수가 마지막으로 바뀐 시각
+  sig: 0,            // 전파 세기 0..1 (전파를 들을 때만 뜻이 있다)
+  sleep: 0,          // 취침 타이머(분). 0 이면 안 쓴다.
+  /* 방금 내린 명령이 폰에 반영될 때까지 폰 상태를 따라가지 않는다. */
+  hold: 0
+};
+
+function holdSync(ms) { S.hold = Date.now() + (ms || 3000); }
+function holding() { return Date.now() < S.hold; }
+
+/* 화면에 그려지는 값. 물리로 따라간다. */
+var P = {
+  needle: 93.1, needleV: 0,   // 다이얼 바늘
+  vuL: -46, vuLV: 0,          // 신호 바늘
+  vuR: 0, vuRV: 0,            // 동조 바늘
+  lvl: 0                      // 평활한 소리 크기
+};
+
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+/* ══════════════════════════════════════════════════════════════
+   바늘 물리 — 스프링 + 감쇠
+   고급 튜너의 계기는 목표로 툭 튀지 않는다. 관성 때문에
+   살짝 지나쳤다가 부드럽게 되돌아와 정착한다. 그걸 흉내낸다.
+   ══════════════════════════════════════════════════════════════ */
+
+/*
+  바늘 각도를 CSS 로 옮긴다.
+
+  축이 위에 있어서 회전 방향이 뒤집힌다. 아래로 늘어진 바늘을 시계 방향으로
+  돌리면 끝이 왼쪽으로 가기 때문이다. 물리 쪽 값(+가 오른쪽)은 그대로 두고
+  여기서만 부호를 뒤집는다.
+*/
+function needleDeg(v) {
+  return "rotate(" + (-v).toFixed(2) + "deg)";
+}
+
+function spring(pos, vel, target, k, damp, dt) {
+  // dt 가 튀면(탭 전환 등) 물리가 폭발하니 잘라낸다.
+  if (dt > 0.05) dt = 0.05;
+  var a = (target - pos) * k - vel * damp;
+  vel += a * dt;
+  pos += vel * dt;
+  return [pos, vel];
+}
+
+/* ══════════════════════════════════════════════════════════════
+   그리기
+   ══════════════════════════════════════════════════════════════ */
+
+var el = {};
+["freqLabel","unitLabel","stationLabel","dialNeedle","vuL","vuR",
+ "knobVol","spinVol","spinBand","spinSrc",
+ "presets","tagFM","tagAM","notice","drum","knurl",
+ "powerBtn","powerLamp","sleepBtn","sl15","sl30","sl60",
+ "kFM","kAM","kAIR","kNET"].forEach(function (id) {
+  el[id] = document.getElementById(id);
+});
+
+/* 아이폰판 — 취침 타이머를 뺐다. 그걸 가리키던 코드가 남아 있어도 죽지 않게 한다.
+   (정식판에서는 해당 코드를 아예 지운다) */
+["sleepBtn","sl15","sl30","sl60"].forEach(function (k) {
+  if (!el[k]) el[k] = { style:{}, className:"", textContent:"", addEventListener:function(){} };
+});
+
+var DIM = "#8a7863", LIVE = "#2fbd52", DEAD = "#c0b6a4";
+
+function bandOf() { return BANDS[S.band]; }
+
+/* 이 밴드에서 "같은 방송국" 으로 볼 오차. FM 은 0.1MHz 단위, AM 은 9kHz 간격이다. */
+function tol() { return S.band === "FM" ? 0.06 : 6; }
+
+/* 인터넷으로 받을 이 밴드의 방송 목록 */
+function netList() { return NET_STATIONS[S.band] || []; }
+
+function stationAt(freq) {
+  var list = netList();
+  for (var i = 0; i < list.length; i++) {
+    if (Math.abs(list[i].freq - freq) < tol()) return list[i];
+  }
+  return null;
+}
+
+function nameFor(freq) {
+  if (!freq) return null;
+  var st = stationAt(freq);
+  if (st) return st.name;
+  // 전파로 받는 FM 은 주파수만 알 수 있으니 이름표를 붙여준다.
+  if (S.band === "FM") return FM_NAMES[freq.toFixed(1)] || null;
+  return null;
+}
+
+/*
+  화면에 쓸 주파수 하나. 숫자와 이름표가 이걸 같이 쓴다.
+
+  전에는 숫자는 손가락 자리를, 이름표는 폰이 잡은 자리를 써서 따로 놀았다.
+  ("93.1" 옆에 91.9 의 이름인 "MBC FM4U" 가 붙던 것이 그것이다)
+
+  - 손으로 돌리는 중 : 손가락 자리
+  - 탐색 중          : 목표. 수신기가 쫓아오는 동안 숫자가 뒤로 가면 안 된다.
+                       (93.1 에 맞췄는데 89.1 로 되돌아가 보이던 것)
+  - 그 밖            : 실제로 잡고 있는 자리
+*/
+function shownFreq() {
+  if (G.drag || G.v !== 0 || S.tuning) return S.target;
+  return S.actual > 0 ? S.actual : S.target;
+}
+
+function render() {
+  var b = bandOf();
+  // 바늘은 물리로 흐른다. 숫자는 위 규칙을 따른다.
+  var needleAt = (S.band === "FM" && S.src === "AIR") ? P.needle : S.target;
+  var pos = clamp((needleAt - b.min) / (b.max - b.min), 0, 1);
+
+  var f = shownFreq();
+  el.freqLabel.textContent = f.toFixed(b.digits);
+  el.unitLabel.textContent = b.unit;
+
+  var who = nameFor(f);
+  if (!S.power) el.stationLabel.textContent = "전원 꺼짐";
+  else if (S.tuning) el.stationLabel.textContent = "주파수 탐색 중";
+  else el.stationLabel.textContent = who || "—";
+
+  // 취침 타이머. 고른 시간에만 불이 들어온다.
+  el.sl15.className = "m" + (S.sleep === 15 ? " on" : "");
+  el.sl30.className = "m" + (S.sleep === 30 ? " on" : "");
+  el.sl60.className = "m" + (S.sleep === 60 ? " on" : "");
+
+  el.dialNeedle.style.left = "calc(52px + " + pos.toFixed(4) + " * (100% - 104px))";
+
+  el.vuL.style.transform = needleDeg(P.vuL);
+  el.vuR.style.transform = needleDeg(P.vuR);
+
+  el.tagFM.style.color = (S.power && S.band === "FM") ? LIVE : DIM;
+  el.tagAM.style.color = (S.power && S.band === "AM") ? LIVE : DIM;
+  el.powerLamp.className = "btn" + (S.power ? " on" : "");
+
+  // 고른 쪽 글씨에 불이 들어오고, 노브 눈금이 그쪽을 가리킨다.
+  el.kFM.style.color = (S.power && S.band === "FM") ? LIVE : DIM;
+  el.kAM.style.color = (S.power && S.band === "AM") ? LIVE : DIM;
+  // AM 은 폰에 수신기가 없어 전파로 받을 수 없다. 고를 수 없음을 흐리게 알린다.
+  el.kAIR.style.color = (S.band === "AM") ? DEAD
+                      : ((S.power && S.src === "AIR") ? LIVE : DIM);
+  el.kNET.style.color = (S.power && S.src === "NET") ? LIVE : DIM;
+
+  el.spinVol.style.transform = "rotate(" + (-140 + S.vol * 280).toFixed(1) + "deg)";
+  el.spinBand.style.transform = "rotate(" + (S.band === "FM" ? -35 : 35) + "deg)";
+  el.spinSrc.style.transform = "rotate(" + (S.src === "AIR" ? -35 : 35) + "deg)";
+
+  renderPresets();
+}
+
+var presetCache = "";
+function renderPresets() {
+  var b = bandOf();
+  var list = presetList();
+  var key = S.band + S.src + "|" + list.join(",") + "|" + S.actual.toFixed(b.digits) + "|" + S.power;
+  if (key === presetCache) return;
+  presetCache = key;
+
+  el.presets.innerHTML = "";
+  list.forEach(function (f) {
+    var chip = document.createElement("div");
+    var on = S.power && Math.abs(f - S.actual) < tol();
+    chip.className = "chip" + (on ? " on" : "");
+    var nm = nameFor(f);
+    chip.textContent = f.toFixed(b.digits) + (nm ? " " + nm : "");
+    chip.addEventListener("click", function () { goTo(f); });
+    el.presets.appendChild(chip);
+  });
+}
+
+/* 프리셋 칩에 뜰 주파수들 */
+function presetList() {
+  if (S.src === "NET") {
+    return netList().map(function (s) { return s.freq; });
+  }
+  return S.stations.length ? S.stations.slice() : FM_PRESETS.slice();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   다이얼이 물릴 자리
+   ══════════════════════════════════════════════════════════════ */
+
+/*
+  전파로 들을 수 있는 방송국. 실제로 만나본 게 있으면 그걸 쓰고,
+  없으면 이름표를 달아둔 서울 목록을 쓴다.
+*/
+function airStations() {
+  if (S.stations.length) return S.stations.slice();
+  return Object.keys(FM_NAMES).map(parseFloat).sort(function (a, b) { return a - b; });
+}
+
+/* 지금 다이얼이 물릴 수 있는 자리들 */
+function tuneList() {
+  if (S.src === "NET") return netList().map(function (s) { return s.freq; });
+  return S.band === "FM" ? airStations() : [];
+}
+
+/* 가장 가까운 자리와 그 거리 */
+function nearest(freq) {
+  var list = tuneList();
+  if (!list.length) return null;
+  var best = list[0], bd = Math.abs(list[0] - freq);
+  for (var i = 1; i < list.length; i++) {
+    var d = Math.abs(list[i] - freq);
+    if (d < bd) { bd = d; best = list[i]; }
+  }
+  return { freq: best, dist: bd };
+}
+
+/*
+  이 거리 안에 들어오면 방송국이 다이얼을 끌어당긴다.
+  옛날 튜너의 그 느낌이다 — 근처에 오면 스르륵 빨려 들어가 철컥 물린다.
+  이게 있어야 미세하게 맞춘 뒤 손을 떼도 옆으로 흘러가지 않는다.
+*/
+var PULL_FM = 0.35, PULL_AM = 14;
+function pullRange() { return S.band === "FM" ? PULL_FM : PULL_AM; }
+
+function magnet(freq) {
+  var n = nearest(freq);
+  if (!n) return freq;
+  var R = pullRange();
+  if (n.dist > R) return freq;
+  // 가까울수록 세게 당긴다. 다만 완전히 붙여버리면 빠져나올 수 없으니 절반쯤만.
+  var t = 1 - n.dist / R;
+  return freq + (n.freq - freq) * (t * t * 0.45);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   동작
+   ══════════════════════════════════════════════════════════════ */
+
+function goTo(freq) {
+  holdSync();
+  S.target = freq;
+  if (!S.power) { setPower(true); if (!S.power) return; }
+
+  if (S.src === "AIR") {
+    // 전파. 수신기가 실제로 잡히는 방송국을 찾아간다.
+    S.tuning = true;
+    N.fmTune(freq);
+  } else {
+    // 인터넷을 틀기 전에 전파를 반드시 끊는다.
+    // 안 끊으면 삼성 라디오와 인터넷 방송이 겹쳐서 같이 들린다.
+    N.fmStop();
+    var st = stationAt(freq);
+    S.actual = freq;
+    if (st && st.url) {
+      N.streamPlay(st.url, st.name);
+      N.meterMode("stream");
+    } else {
+      N.streamStop();
+      note("이 자리에 넣을 방송 주소가 아직 없다.");
+    }
+  }
+  render();
+}
+
+/*
+  전원. 진짜 전원이다.
+
+  예전에는 전파를 끄면 밖에서 되살릴 길이 없어(삼성 앱을 거쳐야 했다)
+  "끄기" 를 음량 0 으로 흉내냈다. 이제 우리가 수신기를 직접 켜고 끄므로
+  그 꼼수가 필요 없다. 끄면 정말 꺼지고, 켜면 우리가 켠다.
+*/
+function setPower(on) {
+  holdSync();
+
+  if (!on) {
+    if (S.src === "AIR") N.fmStop();
+    else N.streamStop();
+    N.meterMode("off");
+    S.power = false;
+    S.sig = 0;
+    render();
+    return;
+  }
+
+  if (S.src === "AIR") {
+    if (!N.fmReady()) { S.power = false; noAir(); render(); return; }
+    if (!N.fmStart()) {
+      // 수신기가 안 켜진다. 대개 안테나(유선 이어폰)가 없어서다.
+      S.power = false;
+      note("FM 수신기를 켜지 못했다.<br><b>유선 이어폰</b>이 꽂혀 있어야 한다. 안테나다.");
+      render();
+      return;
+    }
+    S.power = true;
+    N.meterMode("off");
+    // 켜면 대역 맨 아래(87.5)에서 시작하므로 가려던 자리로 바로 옮긴다.
+    if (S.target > 0) N.fmTune(S.target);
+    render();
+    return;
+  }
+
+  // 인터넷
+  S.power = true;
+  goTo(S.target);
+}
+
+/* 무엇을 듣나 */
+function setBand(b) {
+  if (S.band === b) return;
+  S.band = b;
+  presetCache = "";
+
+  // AM 은 폰에 수신기가 없다. 전파로 고를 수 없으니 인터넷으로 넘긴다.
+  if (b === "AM" && S.src === "AIR") {
+    N.fmStop();          // 전파를 떠난다
+    S.src = "NET";
+    note("폰에는 <b>AM 수신기가 없다</b>. AM 은 인터넷으로만 들을 수 있어 SOURCE 를 NET 으로 옮겼다.");
+  }
+
+  var list = presetList();
+  S.target = list.length ? list[0] : (b === "FM" ? 93.1 : 711);
+
+  if (S.src === "AIR") {
+    N.streamStop();
+    N.meterMode("off");
+    if (S.actual > 0) S.target = S.actual;
+  } else if (S.power) {
+    goTo(S.target);
+    return;
+  }
+  render();
+}
+
+/* 어떻게 받나 */
+function setSrc(s) {
+  if (S.src === s) return;
+  if (s === "AIR" && S.band === "AM") {
+    note("폰에는 <b>AM 수신기가 없다</b>. AM 은 인터넷으로만 들을 수 있다.");
+    return;
+  }
+  S.src = s;
+  presetCache = "";
+
+  if (s === "AIR") {
+    // 인터넷 방송을 끊고 전파로 돌아온다.
+    N.streamStop();
+    N.meterMode("off");
+    S.target = S.actual > 0 ? S.actual : 93.1;
+    if (S.power) { setPower(true); return; }   // 수신기가 꺼져 있으면 안내가 뜬다
+  } else {
+    /*
+      전파를 반드시 끊는다. 이걸 안 하면 인터넷을 골라놓고도
+      수신기가 계속 소리를 내서, 인터넷이 나오는 줄 알게 된다.
+    */
+    N.fmStop();
+    var list = presetList();
+    S.target = list.length ? list[0] : S.target;
+    if (S.power) { goTo(S.target); return; }
+  }
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   볼륨 노브
+   ══════════════════════════════════════════════════════════════ */
+
+function rotary(node, onMove) {
+  node.addEventListener("pointerdown", function (e) {
+    e.preventDefault();
+    var r = node.getBoundingClientRect();
+    var cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    function ang(ev) { return Math.atan2(ev.clientY - cy, ev.clientX - cx) * 180 / Math.PI; }
+    var last = ang(e);
+    function move(ev) {
+      var a = ang(ev), d = a - last;
+      if (d > 180) d -= 360;
+      if (d < -180) d += 360;
+      last = a;
+      onMove(d);
+    }
+    function up() {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", up);
+    }
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", up);
+  });
+}
+
+rotary(el.knobVol, function (d) {
+  S.vol = clamp(S.vol + d / 280, 0, 1);
+  N.setVolume(S.vol);
+  render();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   자이로터치 휠 — 플라이휠 튜너
+   ══════════════════════════════════════════════════════════════ */
+
+/* 휠을 이만큼 밀면 대역을 한 번 훑는다. 클수록 미세하게 잡힌다. */
+var PX_PER_BAND = 1500;
+
+/* 튕겼을 때 낼 수 있는 최고 속도(px/s). 이걸 안 막으면
+   터치 이벤트 간격이 0에 가까울 때 dx/dt 가 수천으로 튀어
+   플라이휠이 대역을 몇 바퀴씩 돌아버린다. */
+var MAX_SPIN = 1100;
+
+/* 이 속도를 넘겨야 관성이 붙는다. 일부러 세게 튕겼을 때만이다. */
+var FLING_MIN = 420;
+
+/* 손을 떼기 전에 이만큼 멈춰 있었으면 관성을 붙이지 않는다.
+   이게 없으면 "쓱 밀고 → 맞추고 멈춘 뒤 → 뗀다" 할 때
+   아까 밀던 속도가 그대로 남아 있어서, 맞춰놓은 순간 옆으로 날아간다. */
+var FLING_IDLE_MS = 90;
+
+var G = { x: 0, v: 0, drag: false, moved: false, lastMoveT: 0 };
+
+function clampSpin(v) { return clamp(v, -MAX_SPIN, MAX_SPIN); }
+
+function drumMove(dx) {
+  G.x += dx;
+  var b = bandOf();
+  var span = b.max - b.min;
+  var next = clamp(S.target + dx / PX_PER_BAND * span, b.min, b.max);
+  // 방송국 근처를 지날 때 다이얼이 끌린다. 관성으로 도는 중이면 여기서 감속하고,
+  // 손으로 미는 중이면 살짝 걸리는 감촉이 된다.
+  S.target = magnet(next);
+  // 대역 끝에 닿으면 더 돌아도 소용없다. 관성을 죽인다.
+  if (next <= b.min || next >= b.max) G.v = 0;
+  if (S.src === "AIR") P.needle = S.target;
+  G.moved = true;
+}
+
+el.drum.addEventListener("pointerdown", function (e) {
+  e.preventDefault();
+  el.drum.setPointerCapture(e.pointerId);
+  G.drag = true;
+  G.v = 0;
+  G.moved = false;
+  var lastX = e.clientX;
+  var lastT = performance.now();
+  G.lastMoveT = lastT;
+
+  function move(ev) {
+    var now = performance.now();
+    var dx = ev.clientX - lastX;
+    var dt = (now - lastT) / 1000;
+    lastX = ev.clientX;
+    lastT = now;
+    if (dx !== 0) G.lastMoveT = now;
+    drumMove(dx);
+    // 간격이 너무 짧은 이벤트로는 속도를 재지 않는다. 나눗셈이 폭발한다.
+    if (dt >= 0.008) {
+      G.v = clampSpin(G.v * 0.45 + (dx / dt) * 0.55);
+    }
+    render();
+  }
+  function up() {
+    el.drum.removeEventListener("pointermove", move);
+    el.drum.removeEventListener("pointerup", up);
+    el.drum.removeEventListener("pointercancel", up);
+    G.drag = false;
+
+    /*
+      관성은 "일부러 세게 튕겼을 때" 만 붙는다.
+      손가락이 멈춰 있다 뗐으면 아무리 큰 속도가 남아 있어도 버린다.
+      맞춰놓고 떼는 것은 튕기는 게 아니다.
+    */
+    var idle = performance.now() - G.lastMoveT;
+    if (idle > FLING_IDLE_MS || Math.abs(G.v) < FLING_MIN) {
+      G.v = 0;
+      if (G.moved) snapToNearest();
+    }
+  }
+  el.drum.addEventListener("pointermove", move);
+  el.drum.addEventListener("pointerup", up);
+  el.drum.addEventListener("pointercancel", up);
+});
+
+/* 멈춘 자리에서 방송국에 완전히 물린다. */
+function snapToNearest() {
+  var n = nearest(S.target);
+
+  if (S.src === "NET") {
+    // 인터넷 방송은 우리가 가진 목록이 곧 전부다. 무조건 그 중 하나에 물린다.
+    if (!n) return;
+    S.target = n.freq;
+    if (Math.abs(n.freq - S.actual) < tol()) { render(); return; }
+    goTo(n.freq);
+    return;
+  }
+
+  /*
+    전파. 끌림 거리 안에 방송국이 있으면 거기 물린다.
+    밖이면 멈춘 자리를 그대로 수신기에 넘기고, 실제로 잡히는 방송국은
+    수신기가 찾게 둔다. 화면이 넘겨짚어 엉뚱한 데로 보내지 않는다.
+  */
+  if (n && n.dist <= pullRange()) S.target = n.freq;
+
+  // 이미 그 자리에 물려 있으면 라디오를 다시 건드리지 않는다.
+  if (S.actual > 0 && Math.abs(S.target - S.actual) < tol()) {
+    S.target = S.actual;
+    render();
+    return;
+  }
+  goTo(S.target);
+}
+
+el.kFM.addEventListener("click", function () { setBand("FM"); });
+el.kAM.addEventListener("click", function () { setBand("AM"); });
+el.kAIR.addEventListener("click", function () { setSrc("AIR"); });
+el.kNET.addEventListener("click", function () { setSrc("NET"); });
+el.powerBtn.addEventListener("click", function () { setPower(!S.power); });
+
+/*
+  취침 타이머. 누를 때마다 15 → 30 → 60 → 꺼짐 으로 돈다.
+  시간 세는 일은 자바가 맡는다. 화면이 꺼지면 브라우저 타이머는 느려지거나
+  아예 멈춰서, 여기서 재면 정작 자야 할 때 안 꺼진다.
+*/
+var SLEEP_STEPS = [0, 15, 30, 60];
+el.sleepBtn.addEventListener("click", function () {
+  var i = SLEEP_STEPS.indexOf(S.sleep);
+  S.sleep = SLEEP_STEPS[(i + 1) % SLEEP_STEPS.length];
+  N.sleepSet(S.sleep);
+  if (S.sleep) note("<b>" + S.sleep + "분</b> 뒤에 저절로 꺼진다.");
+  else note("취침 타이머를 껐다.");
+  render();
+});
+
+/* ══════════════════════════════════════════════════════════════
+   안내문
+   ══════════════════════════════════════════════════════════════ */
+
+var noticeTimer = null;
+function note(msg, btnLabel, onClick) {
+  el.notice.style.display = "block";
+  el.notice.innerHTML = msg;
+  if (btnLabel) {
+    var btn = document.createElement("button");
+    btn.textContent = btnLabel;
+    btn.addEventListener("click", function () { hideNote(); onClick(); });
+    el.notice.appendChild(document.createElement("br"));
+    el.notice.appendChild(btn);
+  }
+  if (noticeTimer) clearTimeout(noticeTimer);
+  if (!btnLabel) noticeTimer = setTimeout(hideNote, 4000);
+}
+function hideNote() { el.notice.style.display = "none"; }
+
+/*
+  이 폰에서 전파를 아예 못 쓸 때만 나온다.
+  프레임워크에 SemFmPlayer 가 없거나, 안드로이드가 숨은 API 를 막고 있는 기기다.
+  (그때는 폰에 hidden_api_policy 를 한 번 넣어줘야 한다)
+*/
+function noAir() {
+  note("이 폰에서는 <b>전파(AIR)</b>를 쓸 수 없다.<br>인터넷 방송(NET)으로 들으면 된다.");
+}
+
+/* ══════════════════════════════════════════════════════════════
+   폰 상태 따라잡기
+   ══════════════════════════════════════════════════════════════ */
+
+var lastLabel = "";
+
+function syncFromPhone() {
+  if (!N.present) return;
+
+  if (S.src === "AIR") {
+    var alive = N.fmAlive();
+    var f = N.fmFreq();
+    if (f > 0 && Math.abs(f - S.actual) > 0.01) {
+      S.actual = f;
+      S.lastMove = Date.now();
+      presetCache = "";
+    }
+    /*
+      이제 주파수를 직접 지정하므로 "탐색" 이랄 게 거의 없다.
+      tune 을 내리면 1초 안에 그 자리에 가 있다. 닿았거나 잠잠하면 끝낸다.
+    */
+    if (S.tuning && (Math.abs(f - S.target) < 0.06 || Date.now() - S.lastMove > 1200)) {
+      S.tuning = false;
+    }
+    // 방금 내린 명령이 아직 반영 중이면 폰 상태를 따라가지 않는다.
+    if (!holding()) S.power = alive;
+    // 전파 세기. 왼쪽 미터가 이걸로 움직인다.
+    S.sig = S.power ? N.fmSignal() : 0;
+    // 알림 글귀. 방송이 바뀔 때만 갈아준다. 매번 부르면 알림이 깜빡인다.
+    if (S.power && !S.tuning) {
+      var f2 = shownFreq();
+      var lab = f2.toFixed(1) + " MHz" + (nameFor(f2) ? "  " + nameFor(f2) : "");
+      if (lab !== lastLabel) { lastLabel = lab; N.fmLabel(lab); }
+    }
+  } else {
+    var err = N.streamError();
+    if (err) note(err);
+    if (!holding()) S.power = N.streamPlaying() || N.streamBuffering();
+    S.sig = 0;
+  }
+
+  S.vol = N.getVolume();
+
+  /* 자바가 시간을 다 세면 스스로 꺼진다. 화면은 그 결과만 따라간다. */
+  if (S.sleep && N.sleepLeft() === 0) S.sleep = 0;
+
+  /*
+    FM 소리는 칩에서 이어폰으로 하드웨어 직결이라 안드로이드 오디오
+    파이프라인을 안 지나간다. Visualizer 로는 못 읽는다. 인터넷 방송에서만 켠다.
+    (전파의 미터는 대신 진짜 전파 세기로 움직인다)
+  */
+  N.meterMode(S.power && S.src === "NET" ? "stream" : "off");
+
+  render();
+}
+
+/* ══════════════════════════════════════════════════════════════
+   애니메이션 루프
+   ══════════════════════════════════════════════════════════════ */
+
+var lastT = 0;
+function frame(t) {
+  var dt = lastT ? (t - lastT) / 1000 : 0.016;
+  lastT = t;
+
+  /* ── 플라이휠의 관성 ──
+     손을 뗀 뒤에도 휠은 계속 돈다. 마찰로 서서히 죽고,
+     충분히 느려지면 그 자리에서 가장 가까운 방송국에 물린다. */
+  if (!G.drag && G.v !== 0) {
+    G.v = clampSpin(G.v * Math.pow(0.04, dt));   // 마찰. 값이 작을수록 빨리 멎는다.
+    drumMove(G.v * dt);
+    if (Math.abs(G.v) < 120) {
+      G.v = 0;
+      snapToNearest();
+    }
+    render();
+  }
+  // 널링만 흐른다. 황동 테와 광택은 제자리에 있어야 원통이 도는 것처럼 보인다.
+  el.knurl.style.backgroundPosition = G.x.toFixed(1) + "px 0";
+
+  /* ── 다이얼 바늘 ──
+     손이 닿아 있는 동안은 스프링을 놓는다. 안 그러면 실제 주파수 쪽으로
+     바늘을 끌어당겨 손가락과 서로 싸운다. */
+  var handTuning = G.drag || G.v !== 0;
+  if (S.src === "AIR") {
+    if (handTuning) {
+      P.needle = S.target;
+      P.needleV = 0;
+    } else {
+      // 탐색 중에는 바늘도 목표를 향한다. 실제 주파수를 좇게 두면
+      // 수신기가 아직 출발 전인 동안 바늘이 뒤로 끌려간다.
+      var aim = (S.tuning || S.actual <= 0) ? S.target : S.actual;
+      var r = spring(P.needle, P.needleV, aim, 55, 9.5, dt);
+      P.needle = r[0]; P.needleV = r[1];
+    }
+  } else {
+    P.needle = S.target;
+  }
+
+  /* ── 왼쪽 미터 ──
+     전파일 때는 진짜 전파 세기(RSSI)를 쓴다. 계기 이름 그대로 SIGNAL STRENGTH 다.
+     인터넷일 때는 우리 플레이어의 파형을 쓴다(그건 읽을 수 있다).
+     둘 다 못 읽으면 음량으로 대신한다. */
+  var raw = 0;
+  if (S.power) {
+    if (S.src === "AIR") raw = S.sig;
+    else raw = N.levelLive() ? N.level() : S.vol;
+  }
+  // 전파 세기는 소리처럼 튀지 않으니 오르내림을 같이 느리게 잡는다.
+  var coef = (S.src === "AIR") ? 0.12 : (raw > P.lvl ? 0.35 : 0.06);
+  P.lvl += (raw - P.lvl) * coef;
+
+  var vuTarget = S.power ? (-46 + P.lvl * 92) : -46;
+  var rl = spring(P.vuL, P.vuLV, vuTarget, 120, 14, dt);
+  P.vuL = rl[0]; P.vuLV = rl[1];
+
+  /* ── 동조 바늘 ──
+     진짜 튜너의 center 미터는 "지금 맞춘 자리" 와 "실제 잡힌 방송국" 의 차이를 본다.
+     방송국이 내 위쪽에 있으면 바늘이 오른쪽으로 눕는다 — 그쪽으로 더 돌리라는 뜻이다.
+     정확히 물리면 가운데로 선다. */
+  var ctr = 0;
+  if (S.power && S.actual > 0) {
+    ctr = clamp((S.actual - P.needle) * 28, -42, 42);
+  }
+  var rr = spring(P.vuR, P.vuRV, ctr, 90, 12, dt);
+  P.vuR = rr[0]; P.vuRV = rr[1];
+
+  // 바늘만 매 프레임 갱신한다. 글자까지 매번 건드리면 낭비다.
+  var b = bandOf();
+  var shown = S.src === "AIR" ? P.needle : S.target;
+  var pos = clamp((shown - b.min) / (b.max - b.min), 0, 1);
+  el.dialNeedle.style.left = "calc(52px + " + pos.toFixed(4) + " * (100% - 104px))";
+  // 숫자는 shownFreq() 한 곳에서 정한다. 바늘 위치를 그대로 찍으면
+  // 스프링이 정착한 자리가 103.6 처럼 어긋나 보인다.
+  el.freqLabel.textContent = shownFreq().toFixed(b.digits);
+  el.vuL.style.transform = needleDeg(P.vuL);
+  el.vuR.style.transform = needleDeg(P.vuR);
+
+  requestAnimationFrame(frame);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   시작
+   ══════════════════════════════════════════════════════════════ */
+
+/*
+  가로를 화면 폭에 정확히 맞춘다. 세로는 그 배율로 나눈 만큼 잡아주면
+  확대 후 화면 높이와 딱 떨어진다.
+*/
+function fit() {
+  var stage = document.getElementById("stage");
+  var k = window.innerWidth / 428;
+  stage.style.height = (window.innerHeight / k) + "px";
+  stage.style.transform = "scale(" + k + ")";
+}
+window.addEventListener("resize", fit);
+
+function boot() {
+  fit();
+  S.vol = N.getVolume();
+  P.needle = S.target;
+  render();
+  requestAnimationFrame(frame);
+  setInterval(syncFromPhone, 250);
+
+  if (N.present) {
+    // 전파를 못 쓰는 폰이면 조용히 인터넷 쪽으로 시작한다.
+    if (!N.fmReady()) {
+      S.src = "NET";
+      presetCache = "";
+      var l = presetList();
+      if (l.length) S.target = l[0];
+    }
+    // 이미 라디오가 켜져 있으면 그 상태를 그대로 물려받는다.
+    // 여기서 대역 스캔을 돌리면 안 된다. 앱을 켰을 뿐인데 라디오가
+    // 혼자 채널을 넘기기 시작한다. 탐색은 선배가 시킬 때만 한다.
+    syncFromPhone();
+  }
+}
+
+boot();
+</script>
+<script>
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("sw.js").catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>

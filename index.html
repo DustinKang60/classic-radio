@@ -1243,8 +1243,22 @@ function frame(t) {
      방송국이 내 위쪽에 있으면 바늘이 오른쪽으로 눕는다 — 그쪽으로 더 돌리라는 뜻이다.
      정확히 물리면 가운데로 선다. */
   var ctr = 0;
-  if (S.power && S.actual > 0) {
-    ctr = clamp((S.actual - P.needle) * 28, -42, 42);
+  if (S.power) {
+    if (handTuning) {
+      /*
+        돌리는 중에는 '가장 가까운 방송국' 을 기준으로 본다.
+        전에는 지금 듣던 방송국만 봐서, 다이얼을 돌리면 그 하나에서 멀어지는 만큼
+        한쪽으로 눕고 끝이었다. 지나가는 방송국마다 기울었다 가운데를 지나
+        반대로 넘어가야 진짜 동조 바늘이다.
+      */
+      var nb2 = nearest(S.target);
+      if (nb2) {
+        var k = (S.band === "FM") ? 60 : 1.2;   // 0.7MHz / 35kHz 벗어나면 끝까지 눕는다
+        ctr = clamp((nb2.freq - S.target) * k, -42, 42);
+      }
+    } else if (S.actual > 0) {
+      ctr = clamp((S.actual - P.needle) * 28, -42, 42);
+    }
   }
   var rr = spring(P.vuR, P.vuRV, ctr, 90, 12, dt);
   P.vuR = rr[0]; P.vuRV = rr[1];

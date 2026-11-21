@@ -237,11 +237,19 @@ var N = (function () {
     },
     getVolume: function () { return vol; },
 
-    /* ── 계기 바늘 ──
-       통로로 진짜 소리가 들어올 때만 "살아 있다" 고 답한다.
-       아니면 화면이 알아서 다른 기준으로 바늘을 움직인다. */
+    /* ── SIGNAL STRENGTH 바늘 ──
+
+       인터넷 방송에는 '전파 세기' 라는 것이 없다. 안테나에 들어오는 세기를
+       재는 것이 아니라, 연결이 됐거나 안 됐거나 둘 중 하나다.
+       그래서 **소리가 나오면 최대, 안 나오면 최소** 로 둔다. 그것이 정직하다.
+
+       전에는 소리 크기를 읽어 흔들었는데, 그건 SIGNAL STRENGTH 가 아니라
+       VU 미터다. 게다가 아이폰에서 소리를 못 읽으면 대신 볼륨을 따라가게 해둬서,
+       볼륨 노브를 올리면 바늘이 따라 오르는 엉뚱한 모습이 됐다.
+
+       바늘이 툭 튀지는 않는다. 화면 쪽 스프링이 부드럽게 끌고 간다. */
     meterMode: function () {},
-    level:     function () { return lvl; },
-    levelLive: function () { return graphed && webAudioOk; }
+    level:     function () { return playing ? 1 : 0; },
+    levelLive: function () { return true; }
   };
 })();

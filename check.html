@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>클래식 라디오 — 소리 통로 진단</title>
+<style>
+  body { font-family:-apple-system, system-ui, sans-serif; margin:0; padding:18px;
+         background:#1a1613; color:#f2ece0; }
+  h1 { font-size:17px; margin:0 0 4px; }
+  p.sub { font-size:13px; color:#a4917c; margin:0 0 16px; line-height:1.5; }
+  button { width:100%; padding:16px; border-radius:10px; border:1px solid #a9967a;
+           background:#3d2618; color:#f4efe3; font-size:16px; font-weight:600; }
+  table { width:100%; border-collapse:collapse; margin-top:16px; }
+  td { padding:9px 6px; font-size:14px; border-bottom:1px solid #3a2f26; vertical-align:top; }
+  td.k { color:#a4917c; width:46%; }
+  .ok { color:#2fbd52; } .bad { color:#ff8a80; } .warn { color:#f2c98a; }
+  #bar { height:16px; background:#241d18; border:1px solid #5c4a3a; border-radius:4px;
+         overflow:hidden; margin-top:6px; }
+  #fill { height:100%; width:0%; background:#2fbd52; transition:width .08s linear; }
+  .big { font-size:15px; font-weight:600; margin-top:18px; padding:12px;
+         border-radius:8px; background:#241d18; border:1px solid #5c4a3a; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<h1>소리 통로 진단</h1>
+<p class="sub">아래 단추를 누르면 10초쯤 소리가 납니다.<br>
+끝나면 이 화면을 그대로 캡처해서 보내주시면 됩니다.</p>
+
+<button id="go">진단 시작 (소리가 납니다)</button>
+
+<table id="t"></table>
+<div id="bar"><div id="fill"></div></div>
+<div class="big" id="verdict">아직 시작하지 않았습니다.</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script>
+"use strict";
+var T = document.getElementById("t");
+function row(k, v, cls) {
+  var tr = document.createElement("tr");
+  tr.innerHTML = '<td class="k"></td><td class="v"></td>';
+  tr.children[0].textContent = k;
+  tr.children[1].textContent = v;
+  if (cls) tr.children[1].className = "v " + cls;
+  T.appendChild(tr);
+  return tr.children[1];
+}
+
+var UA = navigator.userAgent;
+var iOSver = (UA.match(/OS (\d+)[_.](\d+)/) || [])[0] || "알 수 없음";
+row("기기", /iPhone/.test(UA) ? "아이폰" : "아이폰 아님");
+row("iOS", iOSver);
+var hasMMS = typeof window.ManagedMediaSource !== "undefined";
+var hasMSE = typeof window.MediaSource !== "undefined";
+row("hls.js 로드", window.Hls ? "성공 v" + Hls.version : "실패", window.Hls ? "ok" : "bad");
+row("ManagedMediaSource", hasMMS ? "있음" : "없음", hasMMS ? "ok" : "warn");
+row("MediaSource", hasMSE ? "있음" : "없음", hasMSE ? "ok" : "warn");
+var supported = !!(window.Hls && Hls.isSupported());
+row("hls.js 쓸 수 있나", supported ? "예" : "아니오", supported ? "ok" : "bad");
+
+var vPath = row("재생 경로", "—");
+var vCtx  = row("AudioContext", "—");
+var vGraph= row("소리 통로 연결", "—");
+var vRms  = row("통로에 들어온 소리", "—");
+var vGain = row("음량 조절 반응", "—");
+
+var audio = new Audio();
+audio.crossOrigin = "anonymous";
+audio.preload = "none";
+var URL_TEST = "https://m-aac.cbs.co.kr/cbs939/cbs939.stream/playlist.m3u8";
+
+var ctx, gain, analyser, wave, peak = 0, samples = 0, hls = null;
+
+document.getElementById("go").addEventListener("click", function () {
+  this.disabled = true;
+  this.textContent = "진단 중… 10초";
+
+  try {
+    var AC = window.AudioContext || window.webkitAudioContext;
+    ctx = new AC();
+    vCtx.textContent = "만들어짐 (" + ctx.state + ")";
+    vCtx.className = "v ok";
+  } catch (e) {
+    vCtx.textContent = "실패: " + e.message; vCtx.className = "v bad";
+    return;
+  }
+  if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
+
+  try {
+    var src = ctx.createMediaElementSource(audio);
+    gain = ctx.createGain();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 256;
+    wave = new Uint8Array(analyser.fftSize);
+    src.connect(gain); gain.connect(analyser); analyser.connect(ctx.destination);
+    gain.gain.value = 1.0;
+    vGraph.textContent = "연결됨"; vGraph.className = "v ok";
+  } catch (e) {
+    vGraph.textContent = "실패: " + e.message; vGraph.className = "v bad";
+    return;
+  }
+
+  if (supported) {
+    vPath.textContent = "hls.js (Web Audio 에 붙는 경로)"; vPath.className = "v ok";
+    hls = new Hls();
+    hls.loadSource(URL_TEST);
+    hls.attachMedia(audio);
+    hls.on(Hls.Events.MANIFEST_PARSED, function () { audio.play().catch(function(){}); });
+  } else {
+    vPath.textContent = "사파리 자체 재생 (Web Audio 에 안 붙는 경로)"; vPath.className = "v bad";
+    audio.src = URL_TEST;
+    audio.play().catch(function(){});
+  }
+
+  (function loop() {
+    analyser.getByteTimeDomainData(wave);
+    var sum = 0;
+    for (var i = 0; i < wave.length; i++) { var v = (wave[i]-128)/128; sum += v*v; }
+    var rms = Math.sqrt(sum/wave.length);
+    if (rms > peak) peak = rms;
+    samples++;
+    document.getElementById("fill").style.width =
+      Math.max(0, Math.min(100, (20*Math.log10(Math.max(rms,1e-5))+50)/50*100)) + "%";
+    requestAnimationFrame(loop);
+  })();
+
+  // 5초 뒤 음량을 절반으로 낮춰 반응을 본다
+  setTimeout(function () {
+    if (gain) { gain.gain.value = 0.15; vGain.textContent = "음량을 15% 로 낮췄습니다 — 소리가 작아졌나요?"; vGain.className = "v warn"; }
+  }, 5000);
+
+  setTimeout(function () {
+    try { audio.pause(); if (hls) hls.destroy(); } catch (e) {}
+    var heard = peak > 0.001;
+    vRms.textContent = heard ? ("들어옴 (최대 " + peak.toFixed(4) + ")") : "없음 (0 — 빈 소리만 들어왔습니다)";
+    vRms.className = "v " + (heard ? "ok" : "bad");
+
+    var v = document.getElementById("verdict");
+    if (heard) {
+      v.innerHTML = "<span class='ok'>소리가 통로를 지나갑니다.</span><br>" +
+                    "볼륨 노브와 바늘이 동작할 수 있는 상태입니다.";
+    } else if (!supported) {
+      v.innerHTML = "<span class='bad'>사파리가 자체 경로로 재생했습니다.</span><br>" +
+                    "이 경로에서는 음량 조절과 바늘이 동작하지 않습니다. iOS 17.1 이상이면 피할 수 있습니다.";
+    } else {
+      v.innerHTML = "<span class='bad'>통로는 연결됐는데 소리가 안 들어왔습니다.</span><br>" +
+                    "아이폰이 Web Audio 로 소리를 안 보내주는 경우입니다.";
+    }
+    document.getElementById("go").textContent = "진단 끝 — 이 화면을 캡처해 주세요";
+  }, 10000);
+});
+</script>
+</body>
+</html>

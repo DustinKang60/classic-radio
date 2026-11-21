@@ -61,6 +61,43 @@ var N = (function () {
     requestAnimationFrame(measure);
   }
 
+  var turn = 0;
+
+  /*
+    방송사가 주는 주소는 두 가지다.
+
+      ① 그대로 재생할 수 있는 재생목록 (.m3u8) — CBS · EBS
+      ② "재생 주소를 알려주는 주소" — KBS · SBS · MBC
+
+    ②를 그냥 재생기에 던지면 JSON 이나 글자를 받아들고 실패한다.
+    (아이폰에서 CBS 만 나오고 나머지가 안 되던 것이 이것 때문이었다)
+    그래서 ②는 한 번 받아서 안쪽 주소를 꺼낸다.
+
+    안쪽 주소는 전부 시한부다(KBS 는 CloudFront 서명, SBS 는 JWT, MBC 는 자체 토큰).
+    그러니 재생할 때마다 새로 받아야 한다. 저장해두면 몇 시간 뒤에 죽는다.
+  */
+  function resolve(url) {
+    if (url.indexOf(".m3u8") !== -1) return Promise.resolve(url);
+
+    return fetch(url, { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error(r.status);
+      return r.text();
+    }).then(function (body) {
+      // KBS 는 JSON 으로 답한다
+      if (url.indexOf("kbs.co.kr") !== -1) {
+        var d = JSON.parse(body);
+        var item = d.channel_item && d.channel_item[0];
+        var u = item && item.service_url;
+        if (!u) throw new Error("KBS 주소 없음");
+        return u;
+      }
+      // SBS · MBC 중계는 본문 한 줄이 그대로 주소다
+      var t = body.trim().split(/\r?\n/)[0].trim();
+      if (t.indexOf("http") !== 0) throw new Error("주소 아님");
+      return t;
+    });
+  }
+
   function stopStream() {
     playing = false; buffering = false;
     try { audio.pause(); } catch (e) {}
@@ -98,24 +135,34 @@ var N = (function () {
       if (ctx.state === "suspended") { try { ctx.resume(); } catch (e) {} }
       buffering = true;
 
-      function started() { playing = true; buffering = false; }
-      function failed(msg) { lastError = msg || "방송을 열 수 없다"; playing = false; buffering = false; }
+      var myTurn = ++turn;   // 그새 다른 방송을 골랐으면 이 요청은 버린다
 
-      if (window.Hls && window.Hls.isSupported()) {
-        hls = new Hls({ enableWorker: true, lowLatencyMode: false });
-        hls.loadSource(url);
-        hls.attachMedia(audio);
-        hls.on(Hls.Events.MANIFEST_PARSED, function () {
-          audio.play().then(started).catch(function () { failed("재생이 막혔다 — 화면을 한 번 눌러주세요"); });
-        });
-        hls.on(Hls.Events.ERROR, function (_, d) {
-          if (d && d.fatal) failed("방송 신호가 끊겼다");
-        });
-      } else {
-        // 사파리는 HLS 를 스스로 재생한다. hls.js 가 안 되는 기기에서의 대비책.
-        audio.src = url;
-        audio.play().then(started).catch(function () { failed("재생이 막혔다 — 화면을 한 번 눌러주세요"); });
+      function started() { if (myTurn === turn) { playing = true; buffering = false; } }
+      function failed(msg) {
+        if (myTurn !== turn) return;
+        lastError = msg || "방송을 열 수 없다"; playing = false; buffering = false;
       }
+
+      function open(real) {
+        if (myTurn !== turn) return;
+        if (window.Hls && window.Hls.isSupported()) {
+          hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+          hls.loadSource(real);
+          hls.attachMedia(audio);
+          hls.on(Hls.Events.MANIFEST_PARSED, function () {
+            audio.play().then(started).catch(function () { failed("재생이 막혔다 — 화면을 한 번 눌러주세요"); });
+          });
+          hls.on(Hls.Events.ERROR, function (_, d) {
+            if (d && d.fatal) failed("방송 신호가 끊겼다");
+          });
+        } else {
+          // 사파리는 HLS 를 스스로 재생한다. hls.js 가 안 되는 기기에서의 대비책.
+          audio.src = real;
+          audio.play().then(started).catch(function () { failed("재생이 막혔다 — 화면을 한 번 눌러주세요"); });
+        }
+      }
+
+      resolve(url).then(open).catch(function () { failed("방송 주소를 받아오지 못했다"); });
     },
 
     streamStop:      function () { stopStream(); },
@@ -133,6 +180,7 @@ var N = (function () {
     getVolume: function () { return vol; },
 
     /* ── 계기 바늘 ── */
+    _resolveForTest: resolve,   /* 시험용 창구 */
     meterMode: function () {},     // 통로가 하나뿐이라 구분할 필요가 없다
     level:     function () { return lvl; },
     levelLive: function () { return live; }

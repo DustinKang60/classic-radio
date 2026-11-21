@@ -118,7 +118,7 @@ var N = (function () {
   }
 
   /* 실제 재생. graph 가 true 면 Web Audio 통로에 물려서 낸다. */
-  function start(real, useGraph, myTurn, onFail) {
+  function start(real, useGraph, myTurn, onFail, onPlaying) {
     audio = newAudio();
     graphed = false;
 
@@ -132,7 +132,11 @@ var N = (function () {
       }
     }
 
-    function ok() { if (myTurn === turn) { playing = true; buffering = false; } }
+    function ok() {
+      if (myTurn !== turn) return;
+      playing = true; buffering = false;
+      if (onPlaying) onPlaying();
+    }
 
     if (canUseHls()) {
       hls = new Hls({
@@ -189,24 +193,32 @@ var N = (function () {
       resolve(url).then(function (real) {
         if (myTurn !== turn) return;
         webAudioOk = false;
-        start(real, true, myTurn, failed);
 
         /*
-          통로에 소리가 들어오는지 지켜본다.
-          3초가 지나도 빈 소리뿐이면 사파리가 자체 경로로 재생한 것이다.
-          그 상태로 두면 아무 소리도 안 날 위험이 있으니, 통로를 떼고
-          element 로 바로 내보낸다. 음량 조절과 바늘은 포기하되 소리는 지킨다.
+          통로에 소리가 들어오는지 지켜본다. 빈 소리뿐이면 사파리가 자체 경로로
+          재생한 것이고, 그대로 두면 아무 소리도 안 날 위험이 있다. 그때는
+          통로를 떼고 element 로 바로 낸다 — 음량·바늘은 포기하되 소리는 지킨다.
+
+          ★ 시점이 중요하다. 전에는 재생을 걸고 3초 뒤에 봤는데, 폰에서는
+            주소 받고 버퍼링하는 데 그보다 오래 걸린다. 그래서 아직 소리가
+            시작도 안 했는데 "안 들어온다" 고 단정하고 멀쩡한 통로를 떼어냈다.
+            이제는 재생이 실제로 시작된 뒤, 소리가 흐르고 있는지까지 확인하고 본다.
         */
-        clearTimeout(watchdog);
-        watchdog = setTimeout(function () {
-          if (myTurn !== turn) return;
-          if (graphed && !webAudioOk) {
-            var t = audio ? audio.currentTime : 0;
+        function watch() {
+          clearTimeout(watchdog);
+          watchdog = setTimeout(function () {
+            if (myTurn !== turn) return;
+            if (!graphed || webAudioOk) return;          // 통로가 잘 돌고 있다
+            if (!audio) return;
+            // 아직 소리가 안 나왔으면 판단하지 않고 더 기다린다
+            if (audio.paused || audio.currentTime < 1) { watch(); return; }
             teardown();
-            turn = myTurn;            // 같은 요청의 연장이다
-            start(real, false, myTurn, failed);
-          }
-        }, 3000);
+            turn = myTurn;                                // 같은 요청의 연장이다
+            start(real, false, myTurn, failed, null);
+          }, 5000);
+        }
+
+        start(real, true, myTurn, failed, watch);
       }).catch(function () { failed("방송 주소를 받아오지 못했다"); });
     },
 

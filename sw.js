@@ -4,7 +4,7 @@
 
   파일을 고쳤는데 옛것이 계속 보이면 아래 VER 숫자를 올린다. 그게 전부다.
 */
-var VER = "radio-v3";
+var VER = "radio-v4";
 var SHELL = [
   "./",
   "./index.html",
